@@ -1,0 +1,10 @@
+parameters:
+  - name: language
+    type: string
+    default: ''
+
+steps:
+- ${{ if ne(parameters.language, '') }}:
+  - task: AdvancedSecurity-Codeql-Init@1
+    inputs:
+      languages: ${{ parameters.language }}

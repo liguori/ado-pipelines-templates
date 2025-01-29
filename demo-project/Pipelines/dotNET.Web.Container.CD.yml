@@ -1,0 +1,35 @@
+trigger: none
+
+name: $(Date:yyyyMMdd).$(Rev:r)
+
+resources:
+  repositories:
+  - repository: foundation
+    type: git
+    name: YourCommonTemplateTeamProject/YourRepo
+  pipelines:
+  - pipeline: cipipeline
+    source: 'dotNET.Web.Container.CI'
+    trigger: true
+
+extends:
+  template: ado-pipelines-template/model/orchestrations/Model.App.Container.CD.yml@foundation
+  parameters:
+    currentEnvironment: Development
+    currentEnvironmentServiceConnection: conn-azure-rg-devops-demo-dev
+    currentEnvironmentContainerServiceConnection: conn-docker-registry-dev
+    currentEnvironmentResourceGroup: rg-devops-demo
+    currentEnvironmentResourceAKSName: aks-demoaksiac-dev-we-100
+    currentEnvironmentContainerRegistryName: acrdemoaksiacdev
+    currentEnvironmentChartValueFile: Application/.NET/Web/Helm/values-dev.yaml
+    nextEnvironment: Production
+    nextEnvironmentServiceConnection: conn-azure-rg-devops-demo-prod
+    nextEnvironmentContainerServiceConnection: conn-docker-registry-prod
+    nextEnvironmentResourceGroup: rg-devops-demo
+    nextEnvironmentResourceAKSName: aks-demoaksiac-dev-we-100
+    nextEnvironmentContainerRegistryName: acrdemoaksiacdev
+    nextEnvironmentChartValueFile: Application/.NET/Web/Helm/values-prod.yaml
+    chartName: webapp
+    chartVersion: $(resources.pipeline.cipipeline.runName)
+    dockerRepositoryName: demowebapp
+    dockerRepositoryVersion: $(resources.pipeline.cipipeline.runName)

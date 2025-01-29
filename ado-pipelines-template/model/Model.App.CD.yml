@@ -1,0 +1,47 @@
+parameters:
+- name: artifactPipeline
+  type: string
+- name: artifactName
+  type: string
+
+- name: hostingServiceType
+  displayName: Type of resource where to deploy the app
+  type: string
+  default: AzureAppService
+  values:
+  - AzureAppService
+  - AzureFunction
+  - AKS
+  - LogicApp
+  - Container
+  - DbDacpac
+- name: hostingServiceParameters
+  type: object
+  default: []
+
+- name: owaspScan
+  type: boolean
+  default: false
+- name: owaspScanParameters
+  type: object
+  default: []
+
+jobs:
+- job: Deploy
+  steps:
+  - download: ${{ parameters.artifactPipeline }}
+    artifact: ${{ parameters.artifactName }}  
+  - template: ../deploy/Deploy.${{ parameters.hostingServiceType }}.yml
+    parameters:
+      ${{ if eq(parameters.artifactPipeline,'current') }}:
+        artifactFoler: ${{ parameters.artifactName }}
+      ${{ else }}:
+        artifactFoler: ${{ parameters.artifactPipeline}}/${{ parameters.artifactName }}
+      ${{ each parameter in parameters.hostingServiceParameters }}:
+        ${{ parameter.key }}: ${{ parameter.value }}
+- ${{ if eq(parameters.owaspScan, true) }}:
+  - template: ../security/Security.OwaspZap.Scan.yml
+    parameters:
+      ${{ each parameter in parameters.owaspScanParameters }}:
+        ${{ parameter.Key }}: ${{ parameter.Value }}
+      DependsOn: 'Deploy'

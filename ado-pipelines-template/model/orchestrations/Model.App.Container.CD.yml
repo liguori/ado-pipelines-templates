@@ -1,0 +1,83 @@
+parameters:
+- name: currentEnvironment
+  type: string
+- name: currentEnvironmentServiceConnection
+  type: string
+- name: currentEnvironmentContainerServiceConnection
+  type: string
+- name: currentEnvironmentResourceGroup
+  type: string
+- name: currentEnvironmentResourceAKSName
+  type: string
+- name: currentEnvironmentContainerRegistryName
+  type: string
+- name: currentEnvironmentChartValueFile
+  type: string
+- name: nextEnvironment
+  type: string
+- name: nextEnvironmentServiceConnection
+  type: string
+- name: nextEnvironmentContainerServiceConnection
+  type: string
+- name: nextEnvironmentResourceGroup
+  type: string
+- name: nextEnvironmentResourceAKSName
+  type: string
+- name: nextEnvironmentContainerRegistryName
+  type: string
+- name: nextEnvironmentChartValueFile
+  type: string
+- name: chartName
+  type: string
+- name: chartVersion
+  type: string
+- name: dockerRepositoryName
+  type: string
+- name: dockerRepositoryVersion
+  type: string
+
+stages:
+- template: ../../deploy/Deploy.AKS.yml
+  parameters:
+    environment: ${{ parameters.currentEnvironment }}
+    service_connection: ${{ parameters.currentEnvironmentServiceConnection }}
+    containerRegistryName: ${{ parameters.currentEnvironmentContainerRegistryName }}
+    chartName: ${{ parameters.chartName }}
+    chartVersion: ${{ parameters.chartVersion }}
+    arguments: -f ${{ parameters.currentEnvironmentChartValueFile }} --set deployment.image=${{ parameters.currentEnvironmentContainerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.dockerRepositoryVersion }}
+    releaseName: ${{ parameters.chartName }}
+    aksResourceGroup: ${{ parameters.currentEnvironmentResourceGroup }}
+    aksName: ${{ parameters.currentEnvironmentResourceAKSName }}
+
+- stage: promote
+  jobs:
+  - job: promote_current_to_next
+    steps:
+    - template: ../../container/Container.PromoteImage.yml
+      parameters:
+        sourceContainerRegistryServiceConnection:  ${{ parameters.currentEnvironmentContainerServiceConnection }}
+        sourceContainerRegistryName:  ${{ parameters.currentEnvironmentContainerRegistryName }}
+        destinationContainerRegistryServiceConnection: ${{ parameters.currentEnvironmentContainerServiceConnection }}
+        destinationContainerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+        dockerRepositoryName: ${{ parameters.dockerRepositoryName }}
+        imageTag: ${{ parameters.dockerRepositoryVersion }}
+    - template: ../../container/Container.PromoteHelmChart.yml
+      parameters:
+        sourceContainerRegistryServiceConnection: ${{ parameters.currentEnvironmentContainerServiceConnection }}
+        sourceContainerRegistryName: ${{ parameters.currentEnvironmentContainerRegistryName }}
+        destinationContainerRegistryServiceConnection: ${{ parameters.nextEnvironmentContainerServiceConnection }}
+        destinationContainerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+        chartName: ${{ parameters.chartName }}
+        chartVersion: ${{ parameters.chartVersion }}
+
+- template: ../../deploy/Deploy.AKS.yml
+  parameters:
+    environment: ${{ parameters.nextEnvironment }}
+    service_connection: ${{ parameters.nextEnvironmentServiceConnection }}
+    containerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+    chartName: ${{ parameters.chartName }}
+    chartVersion: ${{ parameters.chartVersion }}
+    arguments: -f ${{ parameters.nextEnvironmentChartValueFile }} --set deployment.image=${{ parameters.nextEnvironmentContainerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.dockerRepositoryVersion }}
+    releaseName: ${{ parameters.chartName }}
+    aksResourceGroup:  ${{ parameters.nextEnvironmentResourceGroup }}
+    aksName: ${{ parameters.nextEnvironmentResourceAKSName }}

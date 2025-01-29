@@ -1,0 +1,53 @@
+parameters:
+- name: environment
+  type: string
+- name: service_connection # Must be Azure Kubernetes Service Contributor
+  type: string
+- name: containerRegistryName
+  type: string
+- name: aksResourceGroup
+  type: string
+- name: aksName
+  type: string
+- name: chartName
+  type: string
+- name: chartVersion
+  type: string
+- name: releaseName
+  type: string
+- name: Arguments
+  type: string
+
+stages:
+- stage: ${{ parameters.environment }}
+  jobs:
+  - deployment: DeployHelmChart
+    displayName: Deploy Helm Chart in ${{ parameters.environment }}
+    timeoutInMinutes: 180
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - script: az aks install-cli
+            displayName: Install Kubelogin
+          - task: AzureCLI@2
+            displayName: 'Helm Login to ACR'
+            inputs:
+              azureSubscription: ${{ parameters.service_connection }}
+              scriptLocation: inlineScript
+              scriptType: bash
+              inlineScript: 
+                az acr login -n ${{ parameters.containerRegistryName }};
+          - task: HelmDeploy@0
+            inputs:
+              connectionType: 'Azure Resource Manager'
+              azureSubscription: ${{ parameters.service_connection }}
+              azureResourceGroup: ${{ parameters.aksResourceGroup }}
+              kubernetesCluster: ${{ parameters.aksName }}
+              command: 'upgrade'
+              chartType: 'Name'
+              chartName: 'oci://${{ parameters.containerRegistryName }}.azurecr.io/helm/${{ parameters.chartName }}'
+              releaseName: ${{ parameters.releaseName }}
+              arguments: '--version ${{ parameters.chartVersion }} ${{ parameters.Arguments }}'

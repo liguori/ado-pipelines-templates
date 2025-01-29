@@ -1,0 +1,35 @@
+parameters:
+- name: technology
+  type: string
+  default: Bicep
+  values:
+  - Bicep
+  - ARM
+  - Terraform
+  - LogicApp
+- name: technologyParameters
+  type: object
+  default: []
+- name: environment
+  type: string
+  default: Development
+
+stages:
+- stage: ${{ parameters.environment }}
+  displayName: ${{ parameters.technology }} - ${{ parameters.environment }}
+  jobs:
+  - template: ../infrastructure/Infrastructure.${{ parameters.technology }}.yml
+    parameters:
+      validate: true
+      whatIf: true
+      environment: ${{ parameters.environment }}
+      ${{ each parameter in parameters.technologyParameters }}:
+        ${{ parameter.key }}: ${{ parameter.value }}
+
+- stage: security_scan
+  displayName: 'Security Scan'
+  jobs:
+  - job: security_scan
+    displayName: 'Security Scan'
+    steps:
+    - template: /Pipelines/security/Security.SecDevOps.Scan.yml

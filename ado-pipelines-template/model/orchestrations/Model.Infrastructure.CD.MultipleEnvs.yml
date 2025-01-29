@@ -1,0 +1,11 @@
+parameters:
+- name: environments
+  type: object
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - template: ../Model.Infrastructure.CD.yml
+    parameters:
+      environment: ${{ env.key }}
+      ${{ each parameter in env.value }}:
+        ${{ parameter.key }}: ${{ parameter.value }}

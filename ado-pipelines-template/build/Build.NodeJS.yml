@@ -1,0 +1,69 @@
+parameters:
+# Common mandatory parameters
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: securityInitTasks
+  type: stepList
+  default: []
+- name: securityTasks
+  type: stepList
+  default: []
+
+# Technology specific parameters
+- name: projectFile
+  type: string
+- name: version
+  type: string
+  default: '14.x'
+- name: unitTestsDefinition
+  type: object
+  default: []
+
+jobs:
+- job: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.preBuildTasks }}:
+    - ${{ step }}
+  - ${{ each step in parameters.securityInitTasks }}:
+    - ${{ step }}
+  - task: UseNode@1
+    displayName: 'Use Node.js version ${{ parameters.version }}'
+    inputs:
+      version: ${{ parameters.version }}
+
+  - script: |
+      npm install
+    displayName: 'npm install'
+
+  - script: |
+      npm run build
+    displayName: 'npm run build'
+
+  - ${{ if eq(parameters.unitTests, true) }}:
+    - ${{ each test in parameters.unitTestsDefinition }}:
+      - script: |
+          npm run test ${{ test.key }}
+        displayName: 'npm run test ${{ test.key }}'
+        continueOnError: ${{ test.value.continueOnFail }}
+
+  - ${{ if eq(parameters.unitTests, true) }}:
+    - task: PublishTestResults@2
+      displayName: 'Publish test results'
+      inputs:
+        testResultsFiles: '**/test-results.xml'
+        testRunTitle: 'Test Results'
+
+  - script: |
+      npm run publish
+    displayName: 'npm run publish'
+
+  - ${{ each step in parameters.securityTasks }}:
+    - ${{ step }}
+
+  - publish: $(build.artifactstagingdirectory)
+    artifact: ${{ parameters.artifactName }}

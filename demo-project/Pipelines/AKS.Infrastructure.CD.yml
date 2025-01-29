@@ -1,0 +1,42 @@
+trigger: none
+
+resources:
+  repositories:
+    - repository: foundation
+      type: git
+      name: YourCommonTemplateTeamProject/YourRepo
+  pipelines:
+    - pipeline: aksInfraCi
+      source: 'AKS.Infrastructure.CI'
+      trigger: true
+
+extends:
+  template: ado-pipelines-template/model/orchestrations/Model.Infrastructure.CD.MultipleEnvs.yml@foundation
+  parameters:
+    environments:
+      Development:
+        technology: Terraform
+        technologyParameters:
+          working_directory: Infrastructure/Aks
+          var_file: vars/development.tfvars
+          service_connection: conn-azure-rg-devops-demo-dev
+          location: westeurope
+          backend_service_connection: conn-azure-rg-devops
+          backend_storage_account: saterraforminfra
+          backend_resource_group: rg-devops
+          backend_container: tfstate
+          state_key: aks-infrastructure-stg.tfstate
+          command_arguments: '-var "location=westeurope"'
+      Production:
+        technology: Terraform
+        technologyParameters:
+          working_directory: Infrastructure/Aks
+          var_file: vars/production.tfvars
+          service_connection: conn-azure-rg-devops-demo-prod
+          location: westeurope
+          backend_service_connection: conn-azure-rg-devops
+          backend_storage_account: saterraforminfra
+          backend_resource_group: rg-devops
+          backend_container: tfstate
+          state_key: aks-infrastructure-prod.tfstate
+          command_arguments: '-var "location=westeurope"'

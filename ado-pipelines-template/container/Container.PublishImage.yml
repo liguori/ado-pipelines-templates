@@ -1,0 +1,42 @@
+parameters:
+- name: dockerArtifactPipelineAlias
+  type: string
+- name: dockerArtifactName
+  type: string
+- name: dockerRepositoryName
+  type: string
+- name: imageTag
+  type: string
+- name: containerRegistryName
+  type: string
+- name: containerRegistryServiceConnection
+  type: string
+
+steps:
+- download: ${{ parameters.dockerArtifactPipelineAlias }}
+  artifact: ${{ parameters.dockerArtifactName }}
+
+- task: Docker@2
+  displayName: Load Docker Image from file
+  inputs:
+    command: 'load'
+    ${{ if eq(parameters.dockerArtifactPipelineAlias,'current') }}:
+      arguments: '--input $(Pipeline.Workspace)/${{ parameters.dockerArtifactName }}/${{ parameters.dockerRepositoryName }}.tar'
+    ${{ else }}:
+      arguments: '--input $(Pipeline.Workspace)/${{ parameters.dockerArtifactPipelineAlias }}/${{ parameters.dockerArtifactName }}/${{ parameters.dockerRepositoryName }}.tar'
+
+- task: Docker@2
+  displayName: Docker Tag
+  inputs:
+    containerRegistry: ${{ parameters.containerRegistryServiceConnection }}
+    command: 'tag'
+    arguments: '${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }} ${{ parameters.containerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }}'
+    
+- task: Docker@2
+  displayName: Docker push to ACR
+  inputs:
+    containerRegistry: ${{ parameters.containerRegistryServiceConnection }}
+    repository: ${{ parameters.dockerRepositoryName }}
+    command: 'push'
+    tags: |
+      ${{ parameters.imageTag }}

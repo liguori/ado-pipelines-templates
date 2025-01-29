@@ -1,0 +1,11 @@
+parameters:
+- name: builds
+  type: object
+
+jobs:
+- ${{ each buildJob in parameters.builds }}:
+  - template: ../Model.App.CI.yml
+    parameters:
+      artifactName: ${{ buildJob.key }}
+      ${{ each parameter in buildJob.value }}:
+        ${{ parameter.key }}: ${{ parameter.value }}

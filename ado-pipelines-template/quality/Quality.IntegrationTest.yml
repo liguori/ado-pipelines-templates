@@ -1,0 +1,17 @@
+# Info about integration test:
+# https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests
+# https://katalon.com/resources-center/blog/integration-testing
+
+parameters:
+- name: artifactName
+  type: string
+- name: integrationTestTasks
+  type: stepList
+  default: []
+
+jobs:
+- job: IntegrationTests${{ parameters.artifactName }}
+  dependsOn: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.integrationTestTasks }}:
+    - ${{ step }}

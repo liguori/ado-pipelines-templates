@@ -1,0 +1,18 @@
+parameters:
+- name: artifactPipeline
+  type: string
+- name: artifactName
+  type: string
+- name: environments
+  type: object
+
+stages:
+- ${{ each stage in parameters.Environments }}:
+  - stage: ${{ stage.key }}
+    jobs:
+    - template: ../Model.App.CD.yml
+      parameters:
+        artifactPipeline: ${{ parameters.artifactPipeline }}
+        artifactName: ${{ parameters.artifactName }}
+        ${{ each parameter in stage.value }}:
+          ${{ parameter.key }}: ${{ parameter.value }}

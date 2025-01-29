@@ -1,0 +1,27 @@
+parameters:
+- name: artifactFoler
+  type: string
+- name: subscriptionDeployment
+  type: string
+- name: azureDestinationLogicApp
+  type: string
+- name: replaceVariableInJsonFile
+  type: string
+  default: ''
+
+steps:
+ - ${{ if ne(parameters.replaceVariableInJsonFile, '') }}:
+   - task: FileTransform@2
+     inputs:
+       folderPath: '$(Pipeline.Workspace)/${{ parameters.artifactFoler }}/**/*.zip'
+       enableXmlTransform: false
+       xmlTransformationRules: 
+       jsonTargetFiles: ${{ parameters.replaceVariableInJsonFile }}
+ - task: AzureFunctionApp@2
+   displayName: 'Deploy logic app workflows'
+   inputs:
+     azureSubscription: ${{ parameters.subscriptionDeployment }}
+     appType: 'functionapp,workflowapp'
+     appName: ${{ parameters.azureDestinationLogicApp }}
+     package: '$(Pipeline.Workspace)/${{ parameters.artifactFoler }}/**/*.zip'
+     deploymentMethod: 'zipDeploy'

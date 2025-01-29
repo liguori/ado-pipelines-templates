@@ -1,0 +1,44 @@
+parameters:
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+  default: false
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: technology
+  type: string
+  default: dotNET
+  values:
+  - dotNET
+  - Java
+  - NodeJS
+  - LogicApp
+  - Container
+  - DbDacpac
+- name: technologyParameters
+  type: object
+  default: []
+- name: technologyLanguage
+  type: string
+  default: ''
+
+jobs:
+# Invoke the technology specific template
+- template: ../build/Build.${{ parameters.technology }}.yml
+  parameters:
+    artifactName: ${{ parameters.artifactName }}
+    unitTests: ${{ parameters.unitTests }}
+    preBuildTasks: ${{ parameters.preBuildTasks }}
+    # Inject the security tasks from the Security template
+    securityInitTasks:
+    - template: ../security/Security.SecDevOps.Init.yml
+      parameters:
+        language: ${{ parameters.technologyLanguage }}
+    securityTasks:
+    - template: ../security/Security.SecDevOps.Scan.yml
+      parameters:
+        language: ${{ parameters.technologyLanguage }}
+    ${{ each parameter in parameters.technologyParameters }}:
+      ${{ parameter.key }}: ${{ parameter.value }}

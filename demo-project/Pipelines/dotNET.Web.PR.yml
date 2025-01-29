@@ -1,0 +1,21 @@
+trigger: none
+
+resources:
+  repositories:
+    - repository: foundation
+      type: git
+      name: YourCommonTemplateTeamProject/YourRepo
+
+extends:
+  template: ado-pipelines-template/model/Model.App.PR.yml@foundation
+  parameters:
+    artifactName: myWebAppDotNet
+    technology: dotNET
+    technologyLanguage: csharp
+    technologyParameters:
+      projectFile: Application/.NET/Web/Demo.NET.Web/Demo.NET.Web/Demo.NET.Web.csproj
+      unitTestsDefinition:
+        maintests:
+          testProjectFile: Application/.NET/Web/Demo.NET.Web/Demo.NET.Tests/Demo.NET.Tests.csproj
+          continueOnFail: true
+    unitTests: true

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demowebapp
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: demowebapp
+  template:
+    metadata:
+      labels:
+        app: demowebapp
+    spec:
+      nodeSelector:
+        agentpool: {{ .Values.deployment.agentNodeSelectorPoolName }}
+      containers:
+        - name: webappfrontend
+          image: {{ .Values.deployment.image }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: {{ .Values.deployment.port }}
+              name: http
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.deployment.resources.cpu }}
+              memory: {{ .Values.deployment.resources.memory }}
+            limits:
+              cpu: {{ .Values.deployment.resources.cpu }}
+              memory: {{ .Values.deployment.resources.memory }}
+          env:
+            - name: DefaultConnection
+              value: {{ .Values.appConfig.databaseConnectionString }}

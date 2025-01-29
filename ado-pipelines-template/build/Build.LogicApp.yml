@@ -1,0 +1,50 @@
+parameters:
+# Common mandatory parameters
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: securityInitTasks
+  type: stepList
+  default: []
+- name: securityTasks
+  type: stepList
+  default: []
+
+# Technology specific parameters
+- name: logicAppFolder
+  type: string
+- name: contents
+  type: string
+
+jobs:
+- job: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.preBuildTasks }}:
+    - ${{ step }}
+  - ${{ each step in parameters.securityInitTasks }}:
+    - ${{ step }}
+  - task: CopyFiles@2
+    displayName: 'Create project folder'
+    inputs:
+      SourceFolder: ${{ parameters.logicAppFolder }}
+      Contents: ${{ parameters.contents }}
+      TargetFolder: 'logicAppArtifact'
+
+  - task: ArchiveFiles@2
+    displayName: 'Create project zip'
+    inputs:
+      rootFolderOrFile: 'logicAppArtifact'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+      replaceExistingArchive: true
+
+  - ${{ each step in parameters.securityTasks }}:
+    - ${{ step }}
+
+  - publish: $(build.artifactstagingdirectory)
+    artifact: ${{ parameters.artifactName }}

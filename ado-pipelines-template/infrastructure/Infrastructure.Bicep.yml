@@ -1,0 +1,40 @@
+parameters:
+- name: environment
+  type: string
+- name: subscriptionDeployment
+  type: string
+- name: resourceGroup
+  type: string
+- name: resourceGroupLocation
+  type: string
+- name: template
+  type: string
+- name: templateParameter
+  type: string
+- name: validate
+  type: boolean
+- name: whatIf
+  type: boolean  
+
+jobs:
+  - job: deployBicep
+    steps:
+      - ${{ if eq(parameters.validate, true) }}:
+        - task: AzureCLI@2
+          displayName: Validate template files
+          condition: always()
+          inputs:
+            azureSubscription: ${{ parameters.subscriptionDeployment }}
+            scriptType: pscore
+            scriptLocation: inlineScript
+            inlineScript: |
+              az bicep build --file "${{ parameters.template }}"
+      - task: AzureCLI@2
+        displayName: Execute deployment action
+        inputs:
+          azureSubscription: ${{ parameters.subscriptionDeployment }}
+          scriptType: pscore
+          scriptLocation: inlineScript
+          inlineScript: |
+            $useWhatIf = [System.Convert]::ToBoolean('${{ parameters.whatIf }}')
+            az deployment group create --name BicepDeployment --resource-group ${{ parameters.resourceGroup }} --template-file ${{ parameters.template }} --parameters ${{ parameters.templateParameter }} $(if ($useWhatIf) { '--what-if' })

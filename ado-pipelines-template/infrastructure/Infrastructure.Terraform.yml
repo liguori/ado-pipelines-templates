@@ -1,0 +1,105 @@
+parameters:
+- name: environment
+  type: string
+- name: working_directory
+  type: string
+- name: var_file
+  type: string
+- name: terraform_version
+  type: string
+  default: '1.6.5'
+- name: location
+  type: string
+- name: service_connection # Make sure to be Owner if need to asign roles
+  type: string
+- name: backend_service_connection
+  type: string
+- name: backend_storage_account
+  type: string
+- name: backend_resource_group
+  type: string
+- name: backend_container
+  type: string
+- name: state_key
+  type: string
+- name: command_arguments
+  type: string
+  default: ''
+- name: validate
+  type: boolean
+- name: whatIf
+  type: boolean
+  default: false
+
+jobs:
+- deployment: Plan
+  displayName: Plan
+  timeoutInMinutes: 20
+  environment: 'WhatIf'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - checkout: self
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: ${{ parameters.terraform_version }}
+        - task:  TerraformTaskV4@4
+          displayName: terraform init
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '${{ parameters.working_directory }}'
+            backendServiceArm: ${{ parameters.backend_service_connection }}
+            backendAzureRmResourceGroupName: ${{ parameters.backend_resource_group }}
+            backendAzureRmStorageAccountName: ${{ parameters.backend_storage_account }}
+            backendAzureRmContainerName: ${{ parameters.backend_container }}
+            backendAzureRmKey: ${{ parameters.state_key }}
+        - ${{ if eq(parameters.validate, true) }}:
+          - task:  TerraformTaskV4@4
+            displayName: terraform validate
+            inputs:
+              provider: 'azurerm'
+              command: 'validate'
+              workingDirectory: '${{ parameters.working_directory }}'
+        - task:  TerraformTaskV4@4
+          displayName: terraform plan
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '${{ parameters.working_directory }}'
+            commandOptions: '--var-file=${{ parameters.var_file }} ${{ parameters.command_arguments}}'
+            environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+- ${{ if eq(parameters.whatIf, false) }}:
+  - deployment: Apply
+    displayName: Apply
+    dependsOn: Plan
+    timeoutInMinutes: 180
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: ${{ parameters.terraform_version }}
+          - task:  TerraformTaskV4@4
+            displayName: terraform init
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '${{ parameters.working_directory }}'
+              backendServiceArm: ${{ parameters.backend_service_connection }}
+              backendAzureRmResourceGroupName: ${{ parameters.backend_resource_group }}
+              backendAzureRmStorageAccountName: ${{ parameters.backend_storage_account }}
+              backendAzureRmContainerName: ${{ parameters.backend_container }}
+              backendAzureRmKey: ${{ parameters.state_key }}
+          - task:  TerraformTaskV4@4
+            displayName: terraform apply
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '${{ parameters.working_directory }}'
+              commandOptions: '--var-file=${{ parameters.var_file }} ${{ parameters.command_arguments}}'
+              environmentServiceNameAzureRM: ${{ parameters.service_connection }}

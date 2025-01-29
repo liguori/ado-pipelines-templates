@@ -1,0 +1,44 @@
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - Application/.NET/Web
+
+name: $(Date:yyyyMMdd).$(Rev:r)
+
+resources:
+  repositories:
+    - repository: foundation
+      type: git
+      name: YourCommonTemplateTeamProject/YourRepo
+
+extends:
+  template: ado-pipelines-template/model/orchestrations/Model.App.Container.CI.yml@foundation
+  parameters:
+    containerServiceConnection: conn-docker-registry-dev
+    containerRegistryName: acrdemoaksiacdev
+    buildParameters:
+      artifactName: myWebAppDotNet
+      technology: dotNET
+      technologyLanguage: csharp
+      technologyParameters:
+        projectFile: Application/.NET/Web/Demo.NET.Web/Demo.NET.Web/Demo.NET.Web.csproj
+        unitTestsDefinition:
+          maintests:
+            testProjectFile: Application/.NET/Web/Demo.NET.Web/Demo.NET.Tests/Demo.NET.Tests.csproj
+            continueOnFail: true
+      unitTests: true
+    buildContainerParameters:
+      artifactName: mycontainerwebapp
+      technologyParameters: 
+        dockerBuildTool: Docker
+        dockerFilePath:  Application/.NET/Web/Demo.NET.Web/Demo.NET.Web/Dockerfile
+        dockerContextPath: $(Pipeline.Workspace)/myWebAppDotNet/extract # where the previous artifact will be downloaded and extracted
+        dockerToolCommand: build
+        dockerRepositoryName: demowebapp
+        imageTag: $(Build.BuildNumber)
+    publishHelmChartParameters:
+      chartName: webapp
+      chartPath: Application/.NET/Web/Helm

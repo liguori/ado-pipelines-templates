@@ -1,0 +1,16 @@
+parameters:
+- name: artifactFoler
+  type: string
+- name: subscriptionDeployment
+  type: string
+- name: azureDestinationAppService
+  type: string
+
+steps: 
+- task: AzureRmWebAppDeployment@4
+  inputs:
+    ConnectionType: 'AzureRM'
+    azureSubscription: '${{ parameters.subscriptionDeployment }}'
+    appType: 'webApp'
+    WebAppName: '${{ parameters.azureDestinationAppService }}'
+    packageForLinux: '$(Pipeline.Workspace)/${{ parameters.artifactFoler }}/**/*.zip'

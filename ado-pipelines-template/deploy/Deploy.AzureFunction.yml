@@ -1,0 +1,15 @@
+parameters:
+- name: artifactFoler
+  type: string
+- name: subscriptionDeployment
+  type: string
+- name: azureDestinationFunction
+  type: string
+
+- task: AzureFunctionApp@2
+  inputs:
+    connectedServiceNameARM: '${{ parameters.subscriptionDeployment }}'
+    appType: 'functionAppLinux'
+    isFlexConsumption: true
+    appName: '${{ parameters.azureDestinationFunction }}'
+    package: '$(Pipeline.Workspace)/${{ parameters.artifactFoler }}/**/*.zip'

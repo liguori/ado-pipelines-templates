@@ -1,0 +1,63 @@
+parameters:
+# Common mandatory parameters
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: securityInitTasks
+  type: stepList
+  default: []
+- name: securityTasks
+  type: stepList
+  default: []
+
+# Technology specific parameters
+- name: projectFile
+  type: string
+- name: version
+  type: string
+  default: '11'
+- name: unitTestsDefinition
+  type: object
+  default: []
+
+jobs:
+- job: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.preBuildTasks }}:
+    - ${{ step }}
+  - ${{ each step in parameters.securityInitTasks }}:
+    - ${{ step }}
+  - task: UseJavaVersion@1
+    displayName: 'Use Java version ${{ parameters.version }}'
+    inputs:
+      versionSpec: ${{ parameters.version }}
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - task: Maven@3
+    displayName: "maven clean install"
+    inputs:
+      mavenPomFile: ${{ parameters.projectFile }}
+      goals: 'clean install'
+
+  - ${{ if eq(parameters.unitTests, true) }}:
+    - ${{ each test in parameters.unitTestsDefinition }}:
+      - task: Maven@3
+        displayName: maven test ${{ test.key }}
+        continueOnError: ${{ test.value.continueOnFail }}
+        inputs:
+          mavenPomFile: ${{ test.value.testProjectFile }}
+          goals: 'test'
+          options: '-Dmaven.test.failure.ignore=true'
+          publishJUnitResults: true
+          testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+  - ${{ each step in parameters.securityTasks }}:
+    - ${{ step }}
+
+  - publish: $(build.artifactstagingdirectory)
+    artifact: ${{ parameters.artifactName }}

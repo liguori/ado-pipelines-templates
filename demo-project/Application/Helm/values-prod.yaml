@@ -1,0 +1,15 @@
+webAppService:
+  port: 80
+  targetPort: 8080
+
+deployment:
+  replicas: 1
+  image: <setYourImage
+  agentNodeSelectorPoolName: apppool
+  port: 8080
+  resources:
+    cpu: 1000m
+    memory: 1Gi
+
+appConfig:
+  databaseConnectionString: "puthereyourconnectionstrin"

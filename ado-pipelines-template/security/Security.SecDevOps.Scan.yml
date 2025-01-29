@@ -1,0 +1,22 @@
+parameters:
+  - name: language
+    type: string
+    default: ''
+  - name: break
+    type: boolean
+    default: false
+
+steps:
+- ${{ if and(ne(parameters.language, ''),ne(parameters.language, 'cpp'),ne(parameters.language, 'java'),ne(parameters.language, 'csharp'),ne(parameters.language, 'swift')) }}:    
+  - task: AdvancedSecurity-Codeql-Autobuild@1    
+
+- task: AdvancedSecurity-Dependency-Scanning@1  
+
+- ${{ if ne(parameters.language, '') }}:
+  - task: AdvancedSecurity-Codeql-Analyze@1 
+
+- task: MicrosoftSecurityDevOps@1
+  displayName: 'Microsoft Security DevOps'
+  inputs:
+    tools: terrascan
+    break: ${{ parameters.break }}
