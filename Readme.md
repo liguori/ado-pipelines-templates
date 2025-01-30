@@ -6,7 +6,7 @@ This repository contains examples of Azure DevOps Pipelines templates that can b
 
 The templates are designed to be used across multiple projects and can be referenced in the `azure-pipelines.yml` file of the project repository:
  
-[Templates](/ado-pipelines-template)
+[Templates](/templatea)
 
 
 ## Example of usage of the templates
