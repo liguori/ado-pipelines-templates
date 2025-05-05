@@ -1,0 +1,119 @@
+parameters:
+- name: currentEnvironment
+  type: string
+- name: currentEnvironmentContainerUseAzureServiceConnection
+  type: boolean
+  default: false
+- name: currentEnvironmentServiceConnection
+  type: string
+- name: currentEnvironmentContainerServiceConnection
+  type: string
+  default: ''
+- name: currentEnvironmentResourceGroup
+  type: string
+- name: currentEnvironmentResourceAKSName
+  type: string
+- name: currentEnvironmentContainerRegistryName
+  type: string
+- name: currentEnvironmentChartValueFile
+  type: string
+- name: nextEnvironment
+  type: string
+- name: nextEnvironmentContainerUseAzureServiceConnection
+  type: boolean
+  default: false
+- name: nextEnvironmentServiceConnection
+  type: string
+- name: nextEnvironmentContainerServiceConnection
+  type: string
+  default: ''
+- name: nextEnvironmentResourceGroup
+  type: string
+- name: nextEnvironmentResourceAKSName
+  type: string
+- name: nextEnvironmentContainerRegistryName
+  type: string
+- name: nextEnvironmentChartValueFile
+  type: string
+- name: chartName
+  type: string
+- name: chartVersion
+  type: string
+- name: dockerRepositoryName
+  type: string
+- name: dockerRepositoryVersion
+  type: string
+
+stages:
+- template: ../../deploy/Deploy.AKS.yml
+  parameters:
+    environment: ${{ parameters.currentEnvironment }}
+    service_connection: ${{ parameters.currentEnvironmentServiceConnection }}
+    containerRegistryName: ${{ parameters.currentEnvironmentContainerRegistryName }}
+    chartName: ${{ parameters.chartName }}
+    chartVersion: ${{ parameters.chartVersion }}
+    arguments: -f ${{ parameters.currentEnvironmentChartValueFile }} --set deployment.image=${{ parameters.currentEnvironmentContainerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.dockerRepositoryVersion }}
+    releaseName: ${{ parameters.chartName }}
+    aksResourceGroup: ${{ parameters.currentEnvironmentResourceGroup }}
+    aksName: ${{ parameters.currentEnvironmentResourceAKSName }}
+
+- stage: Promote
+  jobs:
+  - job: promoteApprove
+    displayName: Wait for external validation
+    pool: server
+    timeoutInMinutes: 4320 # job times out in 3 days
+    steps:
+    - task: ManualValidation@1
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        instructions: 'Please approve the promotion'
+        onTimeout: 'resume'
+  - job: promote
+    displayName: Promote artifact from ${{ parameters.currentEnvironment }} to ${{ parameters.nextEnvironment }}
+    dependsOn: promoteApprove
+    steps:
+    - template: ../../container/Container.PromoteImage.yml
+      parameters:
+        sourceUseAzureServiceConnection:  ${{ parameters.currentEnvironmentContainerUseAzureServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, true) }}:
+          sourceContainerRegistryServiceConnection:  ${{ parameters.currentEnvironmentServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, false) }}:
+          sourceContainerRegistryServiceConnection:  ${{ parameters.currentEnvironmentContainerServiceConnection }}
+        sourceContainerRegistryName:  ${{ parameters.currentEnvironmentContainerRegistryName }}
+        destinationUseAzureServiceConnection:  ${{ parameters.nextEnvironmentContainerUseAzureServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, true) }}:
+          destinationContainerRegistryServiceConnection:  ${{ parameters.nextEnvironmentServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, false) }}:
+          destinationContainerRegistryServiceConnection:  ${{ parameters.nextEnvironmentContainerServiceConnection }}
+        destinationContainerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+        dockerRepositoryName: ${{ parameters.dockerRepositoryName }}
+        imageTag: ${{ parameters.dockerRepositoryVersion }}
+    - template: ../../container/Container.PromoteHelmChart.yml
+      parameters:
+        sourceUseAzureServiceConnection:  ${{ parameters.currentEnvironmentContainerUseAzureServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, true) }}:
+          sourceContainerRegistryServiceConnection:  ${{ parameters.currentEnvironmentServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, false) }}:
+          sourceContainerRegistryServiceConnection:  ${{ parameters.currentEnvironmentContainerServiceConnection }}
+        sourceContainerRegistryName: ${{ parameters.currentEnvironmentContainerRegistryName }}
+        destinationUseAzureServiceConnection:  ${{ parameters.nextEnvironmentContainerUseAzureServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, true) }}:
+          destinationContainerRegistryServiceConnection:  ${{ parameters.nextEnvironmentServiceConnection }}
+        ${{ if eq(parameters.currentEnvironmentContainerUseAzureServiceConnection, false) }}:
+          destinationContainerRegistryServiceConnection:  ${{ parameters.nextEnvironmentContainerServiceConnection }}
+        destinationContainerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+        chartName: ${{ parameters.chartName }}
+        chartVersion: ${{ parameters.chartVersion }}
+
+- template: ../../deploy/Deploy.AKS.yml
+  parameters:
+    environment: ${{ parameters.nextEnvironment }}
+    service_connection: ${{ parameters.nextEnvironmentServiceConnection }}
+    containerRegistryName: ${{ parameters.nextEnvironmentContainerRegistryName }}
+    chartName: ${{ parameters.chartName }}
+    chartVersion: ${{ parameters.chartVersion }}
+    arguments: -f ${{ parameters.nextEnvironmentChartValueFile }} --set deployment.image=${{ parameters.nextEnvironmentContainerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.dockerRepositoryVersion }}
+    releaseName: ${{ parameters.chartName }}
+    aksResourceGroup:  ${{ parameters.nextEnvironmentResourceGroup }}
+    aksName: ${{ parameters.nextEnvironmentResourceAKSName }}

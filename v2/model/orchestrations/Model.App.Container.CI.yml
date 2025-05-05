@@ -1,0 +1,56 @@
+parameters:
+- name: useAzureServiceConnection
+  type: boolean
+  default: false
+- name: containerServiceConnection
+  type: string
+- name: containerRegistryName
+  type: string
+- name: buildParameters
+  type: object
+  default: []
+- name: buildContainerParameters
+  type: object
+  default: []
+
+stages:
+- stage: BuildApp
+  displayName: Build App
+  jobs:
+  - template: ../Model.App.CI.yml
+    parameters:
+      technology: ${{ parameters.buildParameters.technology }}
+      technologyParameters: ${{ parameters.buildParameters.technologyParameters }}
+      artifactName: ${{ parameters.buildParameters.artifactName }}
+      technologyLanguage: ${{ parameters.buildParameters.technologyLanguage }}
+
+- stage: BuildContainer
+  displayName: Build Container
+  jobs:
+  - template: ../Model.App.CI.yml
+    parameters:
+      technology: Container
+      technologyParameters: ${{ parameters.buildContainerParameters.technologyParameters }}
+      artifactName: ${{ parameters.buildContainerParameters.artifactName }}
+      preBuildTasks:
+      - download: current
+        artifact: ${{ parameters.buildParameters.artifactName }}
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: '$(Pipeline.Workspace)/${{ parameters.buildParameters.artifactName }}/*.zip' 
+          destinationFolder: $(Pipeline.Workspace)/${{ parameters.buildParameters.artifactName }}/extract
+
+- stage: PublishContainer
+  displayName: Publish Container
+  jobs:
+  - job: PublishContainer
+    steps:
+    - template: ../../container/Container.PublishImage.yml
+      parameters:
+        dockerArtifactPipelineAlias: current
+        dockerArtifactName: ${{ parameters.buildContainerParameters.artifactName }}
+        dockerRepositoryName: ${{ parameters.buildContainerParameters.technologyParameters.dockerRepositoryName }}
+        useAzureServiceConnection: ${{ parameters.useAzureServiceConnection }}
+        containerRegistryServiceConnection: ${{ parameters.containerServiceConnection }}
+        containerRegistryName: ${{ parameters.containerRegistryName }}
+        imageTag: $(Build.BuildNumber)

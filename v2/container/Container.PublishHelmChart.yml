@@ -1,0 +1,49 @@
+parameters:
+- name: chartPath
+  type: string
+- name: chartName
+  type: string
+- name: chartVersion
+  type: string
+- name: useAzureServiceConnection
+  type: boolean
+  default: false
+- name: containerRegistryServiceConnection
+  type: string
+- name: containerRegistryName
+  type: string
+  default: '' #Mandatory only if azure service connection
+
+steps:    
+
+- task: HelmInstaller@1
+  inputs:
+    helmVersionToInstall: '3.13.2'
+
+- task: HelmDeploy@1
+  displayName: 'Helm package'
+  inputs:
+    command: package
+    chartPath: ${{ parameters.chartPath }}
+    chartVersion: ${{ parameters.chartVersion }}
+    arguments: '--app-version ${{ parameters.chartVersion }}'
+
+- ${{ if eq(parameters.useAzureServiceConnection, true) }}:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: ${{ parameters.containerRegistryServiceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: 'az acr login --name ${{ parameters.containerRegistryName }}'
+
+- ${{ if eq(parameters.useAzureServiceConnection, false) }}:
+  - task: Docker@2
+    displayName: 'Login to registry'
+    inputs:
+      command: 'login'
+      containerRegistry: ${{ parameters.containerRegistryServiceConnection }}
+
+- task: CmdLine@2
+  displayName: 'Helm Push'
+  inputs:
+    script: 'helm push $(System.ArtifactsDirectory)/${{ parameters.chartName }}-${{ parameters.chartVersion }}.tgz oci://${{ parameters.containerRegistryName }}.azurecr.io/helm;'

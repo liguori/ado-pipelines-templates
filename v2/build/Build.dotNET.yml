@@ -1,0 +1,82 @@
+parameters:
+# Common mandatory parameters
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: securityInitTasks
+  type: stepList
+  default: []
+- name: securityTasks
+  type: stepList
+  default: []
+
+
+# Technology specific parameters
+- name: projectFile
+  type: string
+- name: version
+  type: string
+  default: '9.0.x'
+- name: unitTestsDefinition
+  type: object
+  default: []
+
+jobs:
+- job: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.preBuildTasks }}:
+    - ${{ step }}
+  - ${{ each step in parameters.securityInitTasks }}:
+    - ${{ step }}
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk v ${{ parameters.version }}'
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.version }}
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet restore"
+    inputs:
+      command: 'restore'
+      projects: ${{ parameters.projectFile }}
+      feedsToUse: 'select'
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet build"
+    inputs:
+      command: 'build'
+      projects: ${{ parameters.projectFile }}
+      arguments: '--configuration Release'
+
+  - ${{ if eq(parameters.unitTests, true) }}:
+    - ${{ each test in parameters.unitTestsDefinition }}:
+      - task: DotNetCoreCLI@2
+        displayName: dotnet test ${{ test.key }}
+        continueOnError: ${{ test.value.continueOnFail }}
+        inputs:
+          command: 'test'
+          arguments: '--configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=$(Build.SourcesDirectory)/TestResults/Coverage/'
+          publishTestResults: true
+          projects: ${{ test.value.testProjectFile }}
+
+  - ${{ if eq(parameters.unitTests, true) }}:
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish code coverage report'
+      inputs:
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet publish"
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: ${{ parameters.projectFile }}
+      arguments: '--configuration Release --output $(build.artifactstagingdirectory)'
+      
+  - ${{ each step in parameters.securityTasks }}:
+    - ${{ step }}
+
+  - publish: $(build.artifactstagingdirectory)
+    artifact: ${{ parameters.artifactName }}

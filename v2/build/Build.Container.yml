@@ -1,0 +1,73 @@
+parameters:
+# Common mandatory parameters
+- name: artifactName
+  type: string
+- name: unitTests
+  type: boolean
+- name: preBuildTasks
+  type: stepList
+  default: []
+- name: securityInitTasks
+  type: stepList
+  default: []
+- name: securityTasks
+  type: stepList
+  default: []
+
+# Technology specific parameters
+- name: dockerBuildTool
+  type: string
+  values:
+    - Docker
+    - ACR
+- name: dockerToolCommand
+  type: string 
+  default: buildAndPush
+- name: dockerFilePath
+  type: string 
+- name: dockerContextPath
+  type: string 
+- name: dockerRegistryConnection
+  type: string 
+  default: ''
+- name: dockerRegistryName
+  type: string
+  default: ''
+- name: dockerRepositoryName
+  type: string 
+- name: imageTag
+  type: string
+
+jobs:
+- job: Build${{ parameters.artifactName }}
+  steps:
+  - ${{ each step in parameters.preBuildTasks }}:
+    - ${{ step }}
+  - ${{ each step in parameters.securityInitTasks }}:
+    - ${{ step }}
+  - ${{ if eq(parameters.dockerBuildTool, 'Docker') }}:
+    - task: Docker@2
+      displayName: Building Image using Docker
+      inputs:
+        ${{ if ne(parameters.dockerRegistryConnection, '') }}:
+          containerRegistry: ${{ parameters.dockerRegistryConnection }}
+        repository: '${{ parameters.dockerRepositoryName }}'
+        command: '${{ parameters.dockerToolCommand }}'
+        Dockerfile: '${{ parameters.dockerFilePath }}'
+        buildContext: '${{ parameters.dockerContextPath }}'
+        tags: |
+          ${{ parameters.imageTag }}
+    - script: docker save ${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }} > $(build.artifactstagingdirectory)/${{ parameters.dockerRepositoryName }}.tar
+      displayName: Save Docker Image as file
+  - ${{ if eq(parameters.dockerBuildTool, 'ACR') }}:   
+      - task: AzureCLI@2
+        displayName: Building Image using ACR
+        inputs:
+          azureSubscription: ${{ parameters.dockerRegistryConnection }}
+          scriptType: 'ps'
+          scriptLocation: 'inlineScript'
+          inlineScript: 'az acr build -t ${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }} --registry ${{ parameters.dockerRegistryName }} --file ${{ parameters.dockerFilePath }} ${{ parameters.dockerContextPath }}'
+  - ${{ each step in parameters.securityTasks }}:
+    - ${{ step }}
+  - publish: $(build.artifactstagingdirectory)
+    artifact: ${{ parameters.artifactName }}

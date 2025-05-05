@@ -1,0 +1,53 @@
+parameters:
+- name: dockerArtifactPipelineAlias
+  type: string
+- name: dockerArtifactName
+  type: string
+- name: dockerRepositoryName
+  type: string
+- name: imageTag
+  type: string
+- name: useAzureServiceConnection
+  type: boolean
+  default: false
+- name: containerRegistryServiceConnection
+  type: string
+- name: containerRegistryName
+  type: string
+
+steps:
+- download: ${{ parameters.dockerArtifactPipelineAlias }}
+  artifact: ${{ parameters.dockerArtifactName }}
+
+- task: Docker@2
+  displayName: Load Docker Image from file
+  inputs:
+    command: 'load'
+    ${{ if eq(parameters.dockerArtifactPipelineAlias,'current') }}:
+      arguments: '--input $(Pipeline.Workspace)/${{ parameters.dockerArtifactName }}/${{ parameters.dockerRepositoryName }}.tar'
+    ${{ else }}:
+      arguments: '--input $(Pipeline.Workspace)/${{ parameters.dockerArtifactPipelineAlias }}/${{ parameters.dockerArtifactName }}/${{ parameters.dockerRepositoryName }}.tar'
+
+- ${{ if eq(parameters.useAzureServiceConnection, true) }}:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: ${{ parameters.containerRegistryServiceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: 'az acr login --name ${{ parameters.containerRegistryName }}'
+
+- ${{ if eq(parameters.useAzureServiceConnection, false) }}:
+  - task: Docker@2
+    displayName: 'Login to registry'
+    inputs:
+      command: 'login'
+      containerRegistry: ${{ parameters.containerRegistryServiceConnection }}
+
+
+- script: |
+    docker tag "${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }}" "${{ parameters.containerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }}"
+  displayName: Docker Tag
+
+- script: |
+    docker push "${{ parameters.containerRegistryName }}.azurecr.io/${{ parameters.dockerRepositoryName }}:${{ parameters.imageTag }}"
+  displayName: Docker Push to ACR

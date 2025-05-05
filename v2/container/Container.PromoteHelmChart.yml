@@ -1,0 +1,64 @@
+parameters:
+- name: sourceUseAzureServiceConnection
+  type: boolean
+  default: false
+- name: sourceContainerRegistryServiceConnection
+  type: string
+- name: sourceContainerRegistryName
+  type: string
+- name: chartName
+  type: string
+- name: chartVersion
+  type: string
+- name: destinationUseAzureServiceConnection
+  type: boolean
+  default: false
+- name: destinationContainerRegistryServiceConnection
+  type: string
+- name: destinationContainerRegistryName
+  type: string
+
+steps:
+- ${{ if eq(parameters.sourceUseAzureServiceConnection, true) }}:
+  - task: AzureCLI@2
+    displayName: 'Login to source registry using Azure Service Connection'
+    inputs:
+      azureSubscription: ${{ parameters.sourceContainerRegistryServiceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: 'az acr login --name ${{ parameters.sourceContainerRegistryName }}'
+
+- ${{ if eq(parameters.sourceUseAzureServiceConnection, false) }}:
+  - task: Docker@2
+    displayName: 'Login to source registry using Docker Service Connection'
+    inputs:
+      command: 'login'
+      containerRegistry: ${{ parameters.sourceContainerRegistryServiceConnection }}
+
+- task: CmdLine@2
+  displayName: Helm pull from source ACR
+  inputs:
+    script: 
+      helm pull oci://${{ parameters.sourceContainerRegistryName }}.azurecr.io/helm/${{ parameters.chartName }} --version ${{ parameters.chartVersion }}
+
+- ${{ if eq(parameters.destinationUseAzureServiceConnection, true) }}:
+  - task: AzureCLI@2
+    displayName: 'Login to destination registry using Azure Service Connection'
+    inputs:
+      azureSubscription: ${{ parameters.destinationContainerRegistryServiceConnection }}
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: 'az acr login --name ${{ parameters.destinationContainerRegistryName }}'
+
+- ${{ if eq(parameters.destinationUseAzureServiceConnection, false) }}:
+  - task: Docker@2
+    displayName: 'Login to destination registry using Docker Service Connection'
+    inputs:
+      command: 'login'
+      containerRegistry: ${{ parameters.destinationContainerRegistryServiceConnection }}
+
+- task: CmdLine@2
+  displayName: 'Helm push to destination ACR'
+  inputs:
+    script: 
+      helm push ${{ parameters.chartName }}-${{ parameters.chartVersion }}.tgz oci://${{ parameters.destinationContainerRegistryName }}.azurecr.io/helm;

@@ -1,0 +1,27 @@
+parameters:
+- name: useAzureServiceConnection
+  type: boolean
+  default: false
+- name: containerServiceConnection
+  type: string
+- name: containerRegistryName
+  type: string
+  default: '' #Mandatory only if azure service connection
+- name: publishHelmChartParameters
+  type: object
+  default: []
+
+stages:
+- stage: PublishHelm
+  displayName: Publish Helm
+  jobs:
+  - job: PublishHelm
+    steps:
+    - template: ../../container/Container.PublishHelmChart.yml
+      parameters:
+        containerRegistryServiceConnection: ${{ parameters.containerServiceConnection }}
+        chartPath: ${{ parameters.publishHelmChartParameters.chartPath }}
+        chartName: ${{ parameters.publishHelmChartParameters.chartName }}
+        chartVersion: $(Build.BuildNumber)
+        containerRegistryName: ${{ parameters.containerRegistryName }}
+        useAzureServiceConnection: ${{ parameters.useAzureServiceConnection }}

@@ -1,0 +1,29 @@
+parameters:
+- name: buildParameters
+  type: object
+  default: []
+- name: deployParameters
+  type: object
+  default: []
+
+stages:
+
+- stage: Build
+  displayName: Build
+  jobs:
+  - template: ../Model.App.CI.yml
+    parameters:
+      technology: ${{ parameters.buildParameters.technology }}
+      technologyParameters: ${{ parameters.buildParameters.technologyParameters }}
+      artifactName: ${{ parameters.buildParameters.artifactName }}
+
+
+- stage: Deploy
+  displayName: Deploy
+  jobs:
+  - template: ../Model.App.CD.yml
+    parameters:
+      artifactPipeline: ${{ parameters.deployParameters.artifactPipeline }}
+      artifactName: ${{ parameters.deployParameters.artifactName }}
+      hostingServiceType: ${{ parameters.deployParameters.hostingServiceType }}
+      hostingServiceParameters: ${{ parameters.deployParameters.hostingServiceParameters }}
