@@ -5,9 +5,6 @@ parameters:
   type: string
 - name: chartVersion
   type: string
-- name: useAzureServiceConnection
-  type: boolean
-  default: false
 - name: containerRegistryServiceConnection
   type: string
 - name: containerRegistryName
@@ -15,7 +12,6 @@ parameters:
   default: '' #Mandatory only if azure service connection
 
 steps:    
-
 - task: HelmInstaller@1
   inputs:
     helmVersionToInstall: '3.13.2'
@@ -28,20 +24,12 @@ steps:
     chartVersion: ${{ parameters.chartVersion }}
     arguments: '--app-version ${{ parameters.chartVersion }}'
 
-- ${{ if eq(parameters.useAzureServiceConnection, true) }}:
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: ${{ parameters.containerRegistryServiceConnection }}
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: 'az acr login --name ${{ parameters.containerRegistryName }}'
-
-- ${{ if eq(parameters.useAzureServiceConnection, false) }}:
-  - task: Docker@2
-    displayName: 'Login to registry'
-    inputs:
-      command: 'login'
-      containerRegistry: ${{ parameters.containerRegistryServiceConnection }}
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: ${{ parameters.containerRegistryServiceConnection }}
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az acr login --name ${{ parameters.containerRegistryName }}'
 
 - task: CmdLine@2
   displayName: 'Helm Push'
